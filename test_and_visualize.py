@@ -29,7 +29,7 @@ def make_summary_figure(image_dict, test_idx, base_path):
         axs[idx].axis('off')
 
     plt.savefig(os.path.join(base_path, f'img_{test_idx}_summary.png'), bbox_inches='tight')
-    f.close()
+    plt.close()
 
 
 def vis_foreground_mask(image_dict, test_idx, base_path):
@@ -43,7 +43,7 @@ def vis_foreground_mask(image_dict, test_idx, base_path):
         axs[idx].axis('off')
 
     plt.savefig(os.path.join(base_path, f'img_{test_idx}_fg_mask.png'), bbox_inches='tight')
-    f.close()
+    plt.close()
 
 
 def test_and_vis(args):
@@ -104,6 +104,7 @@ def test_and_vis(args):
     med_psnr = 0
 
     for test_idx, test_data in enumerate(test_loader):
+        print('======== on test idx: ', test_idx, ' ========', flush=True)
         data_1 = test_data['image']
         data_2 = torch.randn_like(data_1)
 
@@ -125,8 +126,7 @@ def test_and_vis(args):
         med_l1 += return_dict['med_filt']['l1_loss']
         med_psnr += return_dict['med_filt']['PSNR']
 
-        print(f'===== test idx: {test_idx}, t_pred: {return_dict["t_pred"]}, t_actual: {return_dict["t_actual"]} =====')
-        print(return_dict)
+        print(return_dict, flush=True)
 
     for value, name in zip(
             [recon_l1, recon_psnr, direct_recon_l1, direct_recon_psnr, gauss_l1, gauss_psnr, med_l1, med_psnr],
