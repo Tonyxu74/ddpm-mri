@@ -8,6 +8,8 @@ from monai.networks.layers.simplelayers import SkipConnection
 import torch.nn.functional as F
 import math
 from monai.inferers import sliding_window_inference
+import numpy as np
+from scipy.ndimage import gaussian_filter, median_filter, binary_erosion, binary_dilation, binary_fill_holes
 
 
 def extract(a, t, x_shape):
@@ -64,7 +66,7 @@ class GaussianDiffusion(nn.Module):
                 extract(self.sqrt_one_minus_alphas_cumprod, t, x1_bar.shape)
         )
 
-    def get_stepwise_denoise_fn_eval(self, time):
+    def get_stepwise_denoise_fn_eval(self, time, direct_recon=False):
         # get a denoise function that uses the ddim sampling method to denoise at a specific timestep
         # useful for monai sliding window inference since it expects the function to return a single image the same
         # size as the input image
@@ -77,6 +79,9 @@ class GaussianDiffusion(nn.Module):
             while t:
                 step = torch.full((batch_size,), t - 1, dtype=torch.long, device=img.device)
                 x1_bar = self.denoise_fn((img, step))
+                if direct_recon:
+                    return x1_bar
+
                 x2_bar = self.get_x2_bar_from_xt(x1_bar, img, step)
 
                 xt_bar = x1_bar
@@ -124,6 +129,92 @@ class GaussianDiffusion(nn.Module):
         if return_imgs:
             return loss, x_noisy, x_recon
         return loss
+
+    def estimate_timestep_and_filter(self, noisy_img):
+
+        noisy_img = noisy_img.detach().cpu().numpy()
+
+        # smooth image
+        smoothed_img = gaussian_filter(noisy_img, sigma=1, radius=5)
+
+        # med filter image
+        med_filt_img = median_filter(noisy_img, size=5)
+
+        # get foreground using smoothed image
+        mask = smoothed_img > np.percentile(smoothed_img, 1)
+        mask = binary_erosion(mask, iterations=5)
+        mask = binary_dilation(mask, iterations=5)
+        mask = binary_fill_holes(mask)
+
+        # get background (noise) statistics
+        noise = noisy_img[~mask].std()
+
+        # noise std is approximately equal to sqrt(1-alpha), get the closest timestep to this noise
+        closest_t = np.abs(self.sqrt_one_minus_alphas_cumprod.cpu().numpy() - noise).argmin()
+
+        return closest_t, mask, torch.from_numpy(smoothed_img).cuda(), torch.from_numpy(med_filt_img).cuda()
+
+    @torch.no_grad()
+    def test(self, x1, x2, timestep, return_imgs=False):
+        device = x1.device
+
+        t = torch.full((1,), timestep, dtype=torch.long, device=device)
+        x_noisy = self.q_sample(x_start=x1, x_end=x2, t=t)
+
+        # do not assume prior knowledge of timestep! Must estimate from noisy image
+        t_pred, foreground_mask, gauss_filt_img, med_filt_img = self.estimate_timestep_and_filter(x_noisy)
+
+        # use sliding window inference to stride over the image and denoise it
+        x_recon = sliding_window_inference(
+            inputs=x_noisy,
+            roi_size=self.image_size,
+            sw_batch_size=self.batch_size,
+            predictor=self.get_stepwise_denoise_fn_eval(t_pred)
+        )
+
+        # also get the direct reconstruction without using ddim sampling method
+        x_recon_direct = sliding_window_inference(
+            inputs=x_noisy,
+            roi_size=self.image_size,
+            sw_batch_size=self.batch_size,
+            predictor=self.get_stepwise_denoise_fn_eval(t_pred, direct_recon=True)
+        )
+
+        # get losses for all recon methods
+        return_dict = {}
+        image_dict = {}
+        for recon_image, recon_name in zip(
+                [x_noisy, x_recon, x_recon_direct, gauss_filt_img, med_filt_img],
+                ['noisy_img', 'ddim_recon', 'direct_recon', 'gauss_filt', 'med_filt']
+        ):
+            # get l1 loss
+            l1_loss = (x1 - recon_image).abs().mean()
+
+            # also get PSNR
+            mse = ((x1 - x_recon) ** 2).mean()
+            if mse == 0:  # MSE is zero means no noise is present in the signal .
+                psnr = 100
+            else:
+                psnr = 20 * torch.log10(x1.max() / torch.sqrt(mse))
+
+            return_dict[recon_name] = {
+                'l1_loss': l1_loss.item(),
+                'PSNR': psnr.item()
+            }
+            if return_imgs:
+                image_dict[recon_name] = recon_image.cpu().numpy()
+
+        return_dict.update({
+            't_pred': t_pred,
+            't_actual': timestep,
+        })
+        if return_imgs:
+            image_dict.update({
+                'foreground_mask': foreground_mask,
+                'orig_img': x1.cpu().numpy(),
+            })
+
+        return return_dict, image_dict
 
     def q_sample(self, x_start, x_end, t):
         # simply use the alphas to interpolate
