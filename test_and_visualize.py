@@ -26,8 +26,10 @@ def make_summary_figure(image_dict, test_idx, base_path):
 
     for idx, key in enumerate(['orig_img', 'noisy_img', 'gauss_filt', 'med_filt', 'direct_recon', 'ddim_recon']):
         axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
+        axs[idx].axis('off')
 
     plt.savefig(os.path.join(base_path, f'img_{test_idx}_summary.png'))
+    f.close()
 
 
 def vis_foreground_mask(image_dict, test_idx, base_path):
@@ -38,35 +40,10 @@ def vis_foreground_mask(image_dict, test_idx, base_path):
 
     for idx, key in enumerate(['orig_img', 'noisy_img', 'foreground_mask']):
         axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
+        axs[idx].axis('off')
 
     plt.savefig(os.path.join(base_path, f'img_{test_idx}_fg_mask.png'))
-
-
-def save_images(noisy_img, recon_img, train_step, val_idx, base_path):
-    # save cross-sectional images to base path with step
-    _, _, d, h, w = noisy_img.shape
-
-    f, axs = plt.subplots(2, 3, figsize=(8, 5))
-
-    # visualize d axis (hw plane)
-    axs[0, 0].imshow(noisy_img[0, 0, d // 2, :, :])
-    axs[0, 0].set_title('Noisy Image (2-3 plane)')
-    axs[1, 0].imshow(recon_img[0, 0, d // 2, :, :])
-    axs[1, 0].set_title('Reconstructed Image (2-3 plane)')
-
-    # visualize h axis (dw plane)
-    axs[0, 1].imshow(noisy_img[0, 0, :, h // 2, :])
-    axs[0, 1].set_title('Noisy Image (1-3 plane)')
-    axs[1, 1].imshow(recon_img[0, 0, :, h // 2, :])
-    axs[1, 1].set_title('Reconstructed Image (1-3 plane)')
-
-    # visualize w axis (dh plane)
-    axs[0, 2].imshow(noisy_img[0, 0, :, :, w // 2])
-    axs[0, 2].set_title('Noisy Image (1-2 plane)')
-    axs[1, 2].imshow(recon_img[0, 0, :, :, w // 2])
-    axs[1, 2].set_title('Reconstructed Image (1-2 plane)')
-
-    plt.savefig(os.path.join(base_path, f'img_{val_idx}_train_step_{train_step}.png'))
+    f.close()
 
 
 def test_and_vis(args):
@@ -148,7 +125,8 @@ def test_and_vis(args):
         med_l1 += return_dict['med_filt']['l1_loss']
         med_psnr += return_dict['med_filt']['PSNR']
 
-        print(f'test idx: {test_idx}, t_pred: {return_dict["t_pred"]}, t_actual: {return_dict["t_actual"]}')
+        print(f'===== test idx: {test_idx}, t_pred: {return_dict["t_pred"]}, t_actual: {return_dict["t_actual"]} =====')
+        print(return_dict)
 
     for value, name in zip(
             [recon_l1, recon_psnr, direct_recon_l1, direct_recon_psnr, gauss_l1, gauss_psnr, med_l1, med_psnr],
