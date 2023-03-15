@@ -142,6 +142,7 @@ class GaussianDiffusion(nn.Module):
 
         # get foreground using smoothed image
         mask = smoothed_img > np.percentile(smoothed_img, 30)
+        mask = binary_fill_holes(mask)
         mask = binary_erosion(mask, iterations=5)
         mask = binary_dilation(mask, iterations=5)
         mask = binary_fill_holes(mask)
