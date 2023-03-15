@@ -28,7 +28,7 @@ def make_summary_figure(image_dict, test_idx, base_path):
         axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
         axs[idx].axis('off')
 
-    plt.savefig(os.path.join(base_path, f'img_{test_idx}_summary.png'))
+    plt.savefig(os.path.join(base_path, f'img_{test_idx}_summary.png'), bbox_inches='tight')
     f.close()
 
 
@@ -42,7 +42,7 @@ def vis_foreground_mask(image_dict, test_idx, base_path):
         axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
         axs[idx].axis('off')
 
-    plt.savefig(os.path.join(base_path, f'img_{test_idx}_fg_mask.png'))
+    plt.savefig(os.path.join(base_path, f'img_{test_idx}_fg_mask.png'), bbox_inches='tight')
     f.close()
 
 
