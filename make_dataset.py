@@ -5,7 +5,6 @@ import matplotlib
 matplotlib.use('Agg')
 
 base_path = '/home/tonyxu74/scratch/data/mri/'
-base_path = '.'
 
 data_paths = glob.glob(base_path + '*/*.nii.gz')
 

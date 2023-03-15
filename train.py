@@ -77,6 +77,9 @@ def train(args):
         train_data = json.load(f)
     with open(args.val_json, 'r') as f:
         val_data = json.load(f)
+    
+    # remove train item with only 28px in an axis...
+    train_data = [dat for dat in train_data if 'IXI014-HH-1236-T2.nii.gz' not in dat['image']]
 
     # make output dir
     if not os.path.exists(args.log_path):
@@ -106,9 +109,9 @@ def train(args):
 
     # datasets and dataloaders
     train_ds = Dataset(data=train_data, transform=train_transforms)
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=16, pin_memory=True)
     val_ds = Dataset(data=val_data, transform=val_transforms)
-    val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=16, pin_memory=True)
 
     # cycle train dataloader
     train_loader = cycle_dl(train_loader)
@@ -125,7 +128,7 @@ def train(args):
 
     diffusion_model = GaussianDiffusion(
         model,
-        (96, 96, 96),
+        image_size=96,
         channels=1,
         timesteps=args.timesteps,
         loss_type='l1',
@@ -143,7 +146,7 @@ def train(args):
     # params for ema and training
     update_ema_every = 10
     grad_accum_every = 2
-    val_every = 10000
+    val_every = 2000
     step_start_ema = 2000
 
     # optimizer
