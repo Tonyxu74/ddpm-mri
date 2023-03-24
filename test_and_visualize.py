@@ -167,6 +167,10 @@ def generate_sample(args):
     args.batch_size = 30
     print('making batch size 30 for generating samples')
 
+    # make output dir
+    if not os.path.exists(args.log_path):
+        os.makedirs(args.log_path)
+
     # model params mimic those in original code
     model = TimeEmbUNet3D(
         spatial_dims=3,
