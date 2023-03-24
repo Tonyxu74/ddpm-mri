@@ -217,6 +217,34 @@ class GaussianDiffusion(nn.Module):
 
         return return_dict, image_dict
 
+    @torch.no_grad()
+    def generate_sample(self, noise):
+        t = self.num_timesteps - 1
+        batch_size = noise.shape[0]
+
+        img = noise
+
+        while t:
+            step = torch.full((batch_size,), t - 1, dtype=torch.long, device=img.device)
+            x1_bar = self.denoise_fn((img, step))
+
+            x2_bar = self.get_x2_bar_from_xt(x1_bar, img, step)
+
+            xt_bar = x1_bar
+            if t != 0:
+                xt_bar = self.q_sample(x_start=xt_bar, x_end=x2_bar, t=step)
+
+            xt_sub1_bar = x1_bar
+            if t - 1 != 0:
+                step2 = torch.full((batch_size,), t - 2, dtype=torch.long, device=img.device)
+                xt_sub1_bar = self.q_sample(x_start=xt_sub1_bar, x_end=x2_bar, t=step2)
+
+            x = img - xt_bar + xt_sub1_bar
+            img = x
+            t = t - 1
+
+        return img
+
     def q_sample(self, x_start, x_end, t):
         # simply use the alphas to interpolate
         return (

@@ -47,6 +47,7 @@ def vis_foreground_mask(image_dict, test_idx, base_path):
 
 
 def test_and_vis(args):
+    """Run main test experiment, visualize results"""
     # get json datalists
     with open(args.test_json, 'r') as f:
         test_data = json.load(f)
@@ -138,19 +139,53 @@ def test_and_vis(args):
     print('done testing!')
 
 
-def training_progress(args):
-    # grab a few epochs and make images of the training progress
-    pass
+def make_gen_figure(imgs, test_idx, base_path):
+    # vis images generated from pure noise
+    d = imgs.shape[-1]
 
+    f, axs = plt.subplots(5, 6, figsize=(10, 8))
+    for y in range(5):
+        for x in range(6):
+            axs[y, x].imshow(imgs[y * 6 + x][0, :, :, d // 2], cmap='gray')
+            axs[y, x].axis('off')
 
-def pred_vs_actual_timestep(args):
-    # make this if performance is severely degraded
-    pass
+    plt.savefig(os.path.join(base_path, f'img_{test_idx}_gen.png'), bbox_inches='tight')
+    plt.close()
 
 
 def generate_sample(args):
-    # create a sample from pure noise
-    pass
+    """create a sample from pure noise"""
+
+    args.batch_size = 30
+    print('making batch size 30 for generating samples')
+
+    # model params mimic those in original code
+    model = TimeEmbUNet3D(
+        spatial_dims=3,
+        in_channels=1,
+        out_channels=1,
+        channels=(64, 128, 256, 512),
+        num_res_units=2,
+        strides=(2, 2, 2)
+    ).cuda()
+
+    ema_model = GaussianDiffusion(
+        model,
+        (96, 96, 96),
+        channels=1,
+        timesteps=args.timesteps,
+        loss_type='l1',
+        batch_size=args.batch_size
+    ).cuda()
+
+    ema_model.load_state_dict(torch.load(args.model_path))
+    ema_model.eval()
+
+    for i in range(5):
+        noise = torch.randn(args.batch_size, 1, 96, 96, 96)
+        noise = noise.cuda()
+        imgs = ema_model.generate_sample(noise).detach().cpu().numpy()
+        make_gen_figure(imgs, i, args.log_path)
 
 
 if __name__ == '__main__':
@@ -167,4 +202,5 @@ if __name__ == '__main__':
     print('===== arguments for this run =====')
     print(vars(args))
 
-    test_and_vis(args)
+    # test_and_vis(args)
+    generate_sample(args)
