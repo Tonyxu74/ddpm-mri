@@ -141,11 +141,11 @@ class GaussianDiffusion(nn.Module):
         med_filt_img = median_filter(noisy_img, size=5)
 
         # get foreground using smoothed image
-        mask = smoothed_img > np.percentile(smoothed_img, 30)
+        mask = (smoothed_img > np.percentile(smoothed_img, 30))[0, 0]
         mask = binary_fill_holes(mask)
         mask = binary_erosion(mask, iterations=5)
         mask = binary_dilation(mask, iterations=5)
-        mask = binary_fill_holes(mask)
+        mask = binary_fill_holes(mask)[None, None, :, :, :]
 
         # get background (noise) statistics
         noise = noisy_img[~mask].std()
@@ -192,7 +192,7 @@ class GaussianDiffusion(nn.Module):
             l1_loss = (x1 - recon_image).abs().mean()
 
             # also get PSNR
-            mse = ((x1 - x_recon) ** 2).mean()
+            mse = ((x1 - recon_image) ** 2).mean()
             if mse == 0:  # MSE is zero means no noise is present in the signal .
                 psnr = 100
             else:

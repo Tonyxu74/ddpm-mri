@@ -25,8 +25,12 @@ def make_summary_figure(image_dict, test_idx, base_path):
     f, axs = plt.subplots(1, 6, figsize=(15, 3))
 
     for idx, key in enumerate(['orig_img', 'noisy_img', 'gauss_filt', 'med_filt', 'direct_recon', 'ddim_recon']):
-        axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
-        axs[idx].axis('off')
+        if key != 'noisy_img':
+            axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray', vmin=-1, vmax=1)
+            axs[idx].axis('off')
+        else:
+            axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
+            axs[idx].axis('off')
 
     plt.savefig(os.path.join(base_path, f'img_{test_idx}_summary.png'), bbox_inches='tight')
     plt.close()
@@ -39,8 +43,12 @@ def vis_foreground_mask(image_dict, test_idx, base_path):
     f, axs = plt.subplots(1, 3, figsize=(7, 3))
 
     for idx, key in enumerate(['orig_img', 'noisy_img', 'foreground_mask']):
-        axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
-        axs[idx].axis('off')
+        if key == 'orig_img':
+            axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray', vmin=-1, vmax=1)
+            axs[idx].axis('off')
+        else:
+            axs[idx].imshow(image_dict[key][0, 0, :, :, d // 2], cmap='gray')
+            axs[idx].axis('off')
 
     plt.savefig(os.path.join(base_path, f'img_{test_idx}_fg_mask.png'), bbox_inches='tight')
     plt.close()
